@@ -22,6 +22,7 @@ class MainApplication : Application(), ReactApplication {
               add(MyAppPackage())
               add(DeviceApiPackage())
               add(StabexPackage())
+              add(NewLandPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

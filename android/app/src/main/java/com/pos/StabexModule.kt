@@ -12,6 +12,9 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.modules.core.DeviceEventManagerModule
+
+
+//for the sdk
 import com.vfi.smartpos.deviceservice.aidl.IDeviceService
 import com.vfi.smartpos.deviceservice.aidl.IPrinter
 import com.vfi.smartpos.deviceservice.aidl.IMagCardReader
@@ -19,6 +22,7 @@ import com.vfi.smartpos.deviceservice.aidl.IScanner
 import com.vfi.smartpos.deviceservice.aidl.IRFCardReader
 import com.vfi.smartpos.deviceservice.aidl.IBeeper
 import com.vfi.smartpos.deviceservice.aidl.ISmartCardReader
+//sdk
 
 import com.pos.Utility.hexStr2Byte
 import com.pos.Utility.byte2HexStr
