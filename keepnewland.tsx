@@ -11,7 +11,9 @@ import com.newland.sdk.module.light.LightColor
 import com.newland.sdk.module.rfcard.RFCardPowerOnExtParams
 import com.newland.sdk.module.rfcard.RFCardType
 import com.newland.sdk.module.rfcard.RFResult
-import com.newland.sdk.module.scanner.Scanner
+
+import com.newland.sdk.module.scanner.ScannerModule
+
 import com.newland.sdk.module.scanner.ScannerListener
 import com.newland.sdk.module.scanner.ScannerType
 import com.newland.sdk.module.scanner.ScannerExtParams
@@ -21,9 +23,33 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
+
+//printer functionality
+import com.newland.sdk.module.printer.Alignment
+import com.newland.sdk.module.printer.EnFontSize
+import com.newland.sdk.module.printer.ErrorCode
+import com.newland.sdk.module.printer.FontScale
+import com.newland.sdk.module.printer.ImageFormat
+import com.newland.sdk.module.printer.PrintListener
+import com.newland.sdk.module.printer.PrintScriptUtil
+import com.newland.sdk.module.printer.PrinterStatus
+import com.newland.sdk.module.printer.TextFormat
+import com.newland.sdk.module.printer.ZhFontSize
+//printer functionalitu
+
+
+
+
 class NewLandModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
-    private val scanner: Scanner? = ModuleManage.getInstance().scannerModule
+
+    // private val scanner: ScannerModule? = ModuleManage.getInstance().scannerModule
+
+    private val moduleManage: ModuleManage = ModuleManage.getInstance()
+    private val scanner: ScannerModule? by lazy {
+        moduleManage.init(reactApplicationContext) // Ensure initialization is called
+        moduleManage.scannerModule
+    }
 
     override fun getName(): String {
         return "NewLandModule"
@@ -128,43 +154,54 @@ class NewLandModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
         }
     }
 
-    @ReactMethod
-    fun startScanner(callback: Callback) {
-        val scannerExtParams = ScannerExtParams()
-        scannerExtParams.isOnce = true
-
-        scanner?.startScan(
-            reactApplicationContext,
-            ScannerType.FRONT,
-            null,
-            10,
-            object : ScannerListener {
-                override fun onTimeout() {
-                    callback.invoke("Scanner timeout")
-                }
-
-                override fun onResponse(scanResults: Array<String>) {
-                    if (scanResults.isNotEmpty()) {
-                        val scannedQRCode = scanResults[0]
-                        callback.invoke(scannedQRCode)
-                    } else {
-                        callback.invoke("No QR Code found")
-                    }
-                }
-
-                override fun onFinish() {
-                    // Optional: Notify scan finish
-                }
-
-                override fun onError(errorCode: Int, message: String) {
-                    callback.invoke("Scanner error: $message")
-                }
-
-                override fun onCancel() {
-                    callback.invoke("Scanner cancelled")
-                }
-            },
-            scannerExtParams
-        )
+@ReactMethod
+fun startScanner(callback: Callback) {
+    // Ensure the scanner is initialized and available
+    if (scanner == null) {
+        Log.e("NewLandModule", "ScannerModule is null")
+        callback.invoke("Error: Scanner module is not available")
+        return
     }
+
+    // Scanner parameters
+    val scannerExtParams = ScannerExtParams()
+    scannerExtParams.isOnce = true
+
+    scanner?.startScan(
+        reactApplicationContext,
+        ScannerType.FRONT, // Choose the appropriate scanner type
+        null, // Optional layout parameter, set to null for default
+        10, // Timeout in seconds
+        object : ScannerListener {
+            override fun onTimeout() {
+                callback.invoke("Scanner timeout")
+            }
+
+            override fun onResponse(scanResults: Array<String>) {
+                if (scanResults.isNotEmpty()) {
+                    val scannedQRCode = scanResults[0]
+                    Log.d("NewLandModule", "Scanned QR Code: $scannedQRCode")
+                    // Send the scanned QR code back to React Native
+                    callback.invoke(scannedQRCode)
+                } else {
+                    callback.invoke("No QR Code found")
+                }
+            }
+
+            override fun onFinish() {
+                Log.d("NewLandModule", "Scanner finished")
+            }
+
+            override fun onError(errorCode: Int, message: String) {
+                Log.e("NewLandModule", "Scanner error: $message")
+                callback.invoke("Scanner error: $message")
+            }
+
+            override fun onCancel() {
+                callback.invoke("Scanner cancelled")
+            }
+        },
+        scannerExtParams
+    )
+}
 }

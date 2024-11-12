@@ -84,6 +84,7 @@ dependencies {
     }
 
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+    implementation 'me.dm7.barcodescanner:zxing:1.9'
 
    // implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
     //implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))

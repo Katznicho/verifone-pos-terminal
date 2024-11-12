@@ -1,5 +1,6 @@
 package com.pos
 
+import android.graphics.Bitmap
 import android.util.Log
 import android.widget.Toast
 import com.facebook.react.bridge.ReactApplicationContext
@@ -11,7 +12,7 @@ import com.newland.sdk.module.light.LightColor
 import com.newland.sdk.module.rfcard.RFCardPowerOnExtParams
 import com.newland.sdk.module.rfcard.RFCardType
 import com.newland.sdk.module.rfcard.RFResult
-import com.newland.sdk.module.scanner.Scanner
+import com.newland.sdk.module.scanner.ScannerModule
 import com.newland.sdk.module.scanner.ScannerListener
 import com.newland.sdk.module.scanner.ScannerType
 import com.newland.sdk.module.scanner.ScannerExtParams
@@ -21,9 +22,23 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
+import com.newland.sdk.module.printer.Alignment
+import com.newland.sdk.module.printer.EnFontSize
+import com.newland.sdk.module.printer.ErrorCode
+import com.newland.sdk.module.printer.FontScale
+import com.newland.sdk.module.printer.ImageFormat
+import com.newland.sdk.module.printer.PrintListener
+import com.newland.sdk.module.printer.PrintScriptUtil
+import com.newland.sdk.module.printer.PrinterStatus
+import com.newland.sdk.module.printer.TextFormat
+import com.newland.sdk.module.printer.ZhFontSize
+
+
+
+
 class NewLandModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
-    private val scanner: Scanner? = ModuleManage.getInstance().scannerModule
+    private val moduleManage: ModuleManage = ModuleManage.getInstance()
 
     override fun getName(): String {
         return "NewLandModule"
@@ -31,140 +46,165 @@ class NewLandModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
 
     @ReactMethod
     fun showToast(message: String) {
-        Log.d("NewLandModule", "showToast called with message: $message")
         Toast.makeText(reactApplicationContext, message, Toast.LENGTH_SHORT).show()
     }
 
-    @ReactMethod
-    fun initNfcAuth(callback: Callback) {
-        Log.d("NewLandModule", "initNfcAuth called")
-        GlobalScope.launch(Dispatchers.IO) {
-            val isManuallyLoggedIn = false
-            if (isManuallyLoggedIn) return@launch
+    // NFC and scanner functionality (existing code) ...
 
-            val moduleManage = ModuleManage.getInstance()
+    // New printer functionality
+@ReactMethod
+fun initializeTRAPrinter() {
+    moduleManage.init(reactApplicationContext)
+    val printerModule = moduleManage.printerModule
+    val printScriptUtil = printerModule.getPrintScriptUtil(reactApplicationContext)
 
-            try {
-                Log.d("NewLandModule", "Initializing NFC module")
-                moduleManage.init(reactApplicationContext)
-            } catch (e: Exception) {
-                Log.e("NewLandModule", "Error initializing NFC module: ${e.message}")
-                callback.invoke("Error initializing NFC module: ${e.message}")
-                return@launch
-            }
-
-            val cardTypeList: MutableList<RFCardType> = ArrayList()
-            cardTypeList.add(RFCardType.ACARD)
-            cardTypeList.add(RFCardType.BCARD)
-            cardTypeList.add(RFCardType.M1CARD)
-            cardTypeList.add(RFCardType.M0CARD)
-            cardTypeList.add(RFCardType.FELICA_CARD)
-
-            val timeout = 60
-            val rfCardPowerOnExtParams: RFCardPowerOnExtParams? = null
-            val rfCardModule = try {
-                Log.d("NewLandModule", "Getting RFCardModule")
-                moduleManage.rfCardModule
-            } catch (e: NullPointerException) {
-                Log.e("NewLandModule", "Error getting RFCardModule: ${e.message}")
-                callback.invoke("Error getting RFCardModule: ${e.message}")
-                return@launch
-            }
-
-            var retryCount = 0
-            val maxRetries = 3
-            var callbackInvoked = false
-            while (retryCount < maxRetries) {
-                try {
-                    Log.d("NewLandModule", "Attempting to power on RF card")
-                    val rfResult: RFResult = rfCardModule.powerOn(
-                        cardTypeList.toTypedArray(),
-                        timeout,
-                        rfCardPowerOnExtParams
-                    )
-                    withContext(Dispatchers.Main) {
-                        Log.d("NewLandModule", "RF card powered on, processing result")
-                        handleRfResult(rfResult, callback)
-                        callbackInvoked = true
-                    }
-                    break
-                } catch (e: Exception) {
-                    retryCount++
-                    if (retryCount >= maxRetries && !callbackInvoked) {
-                        Log.e("NewLandModule", "Failed to authenticate NFC card after $maxRetries attempts: ${e.message}")
-                        withContext(Dispatchers.Main) {
-                            callback.invoke("Failed to authenticate NFC card after $maxRetries attempts: ${e.message}")
-                            callbackInvoked = true
-                        }
-                    }
-                }
-            }
-        }
+    if (printerModule.status != PrinterStatus.NORMAL) {
+        Log.e("NewLandModule", "Check printer status")
+        showToast("Check printer")
+        return
     }
 
-    private fun handleRfResult(rfResult: RFResult, callback: Callback) {
-        Log.d("NewLandModule", "Handling NFC authentication result")
-        if (rfResult.snr == null) {
-            Log.d("NewLandModule", "RF SN is null")
-            callback.invoke("RF SN: null")
-        } else {
-            val snrHex = ISOUtils.hexString(rfResult.snr)
-            Log.d("NewLandModule", "RF SN: $snrHex")
-            callback.invoke("RF SN: $snrHex")
+    try {
+        val fontName = "FreeMonoBold.ttf"
+        printScriptUtil.addFont(reactApplicationContext, fontName)
 
-            if (rfResult.rfcardType != null) {
-                Log.d("NewLandModule", "RF Card Type: ${rfResult.rfcardType}")
-                callback.invoke("RF Card Type: ${rfResult.rfcardType}")
-
-                if (rfResult.rfcardType == RFCardType.M1CARD) {
-                    val moduleManage = ModuleManage.getInstance()
-                    Log.d("NewLandModule", "M1 Card detected, playing buzzer and blinking lights")
-                    moduleManage.buzzerModule.play(1, 1, 1)
-                    moduleManage.indicatorLightModule.blinkLight(
-                        arrayOf(LightColor.RED, LightColor.BLUE, LightColor.YELLOW), 1, 1
-                    )
-                }
-            }
+        val leftAlignFormat = TextFormat().apply {
+            alignment = Alignment.LEFT
+            fontScale = FontScale.ORINARY
+            zhFontSize = ZhFontSize.FONT_24x24USER
+            enFontSize = EnFontSize.FONT_12x24A
+            isLinefeed = true
         }
-    }
 
-    @ReactMethod
-    fun startScanner(callback: Callback) {
-        val scannerExtParams = ScannerExtParams()
-        scannerExtParams.isOnce = true
+        val titleFormat = TextFormat().apply {
+            alignment = Alignment.CENTER
+            fontScale = FontScale.ORINARY
+            zhFontSize = ZhFontSize.FONT_24x24USER
+            enFontSize = EnFontSize.FONT_12x24A
+            isLinefeed = true
+        }
 
-        scanner?.startScan(
-            reactApplicationContext,
-            ScannerType.FRONT,
-            null,
-            10,
-            object : ScannerListener {
-                override fun onTimeout() {
-                    callback.invoke("Scanner timeout")
-                }
+        val receiptTitle = "TAX INVOICE"
+        printScriptUtil.addText(titleFormat, receiptTitle)
+        printScriptUtil.setLineSpacing(20)
 
-                override fun onResponse(scanResults: Array<String>) {
-                    if (scanResults.isNotEmpty()) {
-                        val scannedQRCode = scanResults[0]
-                        callback.invoke(scannedQRCode)
-                    } else {
-                        callback.invoke("No QR Code found")
-                    }
-                }
+        // Dummy data for the station
+        val stationName = "Station XYZ"
+        val stationPin = "1234567890"
+        val stationPhone = "+254712345678"
+        printScriptUtil.addFormattedText("", stationName, 15, 12)
+        printScriptUtil.addFormattedText("TRA PIN:", stationPin, 15, 12)
+        printScriptUtil.addFormattedText("TEL:", stationPhone, 15, 12)
+        printScriptUtil.setLineSpacing(5)
 
-                override fun onFinish() {
-                    // Optional: Notify scan finish
-                }
+        // Dummy data for the transaction
+        val transactionId = "TXN123456789"
+        val buyerPin = "789123456"
+        val buyerName = "John Doe"
+        printScriptUtil.addFormattedText("TRANSACTION ID:", transactionId, 15, 12)
+        printScriptUtil.addFormattedText("BUYER PIN:", buyerPin, 15, 12)
+        printScriptUtil.addFormattedText("BUYER NAME:", buyerName, 15, 12)
 
-                override fun onError(errorCode: Int, message: String) {
-                    callback.invoke("Scanner error: $message")
-                }
+        // Dummy receipt content (items, amounts, etc.)
+        printScriptUtil.addFormattedText("ITEM 1:", "Product A", 15, 12)
+        printScriptUtil.addFormattedText("Amount:", "KES 500.00", 15, 12)
+        printScriptUtil.addFormattedText("ITEM 2:", "Product B", 15, 12)
+        printScriptUtil.addFormattedText("Amount:", "KES 200.00", 15, 12)
+        printScriptUtil.addFormattedText("TOTAL:", "KES 700.00", 15, 12)
 
-                override fun onCancel() {
-                    callback.invoke("Scanner cancelled")
-                }
-            },
-            scannerExtParams
-        )
+        printScriptUtil.addDottedLine()
+
+        // Generate and add the QR code (dummy URL)
+        val qrCodeUrl = "https://example.com/transaction/$transactionId"
+        val qrCodeBitmap = generateQRCodeBitmap(qrCodeUrl)
+        val formatQRCode = ImageFormat().apply {
+            alignment = Alignment.CENTER
+            width = 200
+            height = 200
+        }
+        printScriptUtil.addImage(formatQRCode, qrCodeBitmap)
+
+        // Final message
+        printScriptUtil.addText(titleFormat, "Thank You Visit Again")
+        printScriptUtil.addText(titleFormat, "Powered by Pesapal")
+        printScriptUtil.setLineSpacing(40)
+        printScriptUtil.addDottedLine()
+
+        // Print action
+        printScriptUtil.print(object : PrintListener {
+            override fun onSuccess() {
+                showToast("Print successful")
+            }
+
+            override fun onError(error: ErrorCode, msg: String) {
+                showToast("Print error: $msg : errorCode $error")
+            }
+        })
+    } catch (ex: Exception) {
+        Log.e("NewLandModule", "Print exception: ${ex.message}")
     }
 }
+
+
+    // Extension function to add formatted text
+fun PrintScriptUtil.addFormattedText(leftText: String, rightText: String, maxLeftWidth: Int, maxRightWidth: Int) {
+    val totalWidth = maxLeftWidth + maxRightWidth
+    val spaceBetween = totalWidth - leftText.length - rightText.length
+    val formattedText = when {
+        spaceBetween > 0 -> "$leftText${" ".repeat(spaceBetween)}$rightText"
+        else -> "$leftText $rightText".take(totalWidth)
+    }
+    this.addText(
+        TextFormat().apply {
+            alignment = Alignment.LEFT
+            fontScale = FontScale.ORINARY
+            zhFontSize = ZhFontSize.FONT_24x24USER
+            enFontSize = EnFontSize.FONT_12x24A
+            isLinefeed = true
+        }, formattedText
+    )
+}
+
+// private fun showMessage(message: String, messageType: Int) {
+//         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+//         Log.d("Scanner fragment", message)
+//     }
+
+
+    // private fun generateQRCodeBitmap(url: String): Bitmap {
+    //     // Implement QR code generation logic here
+    //     // Placeholder function for generating a QR code Bitmap from a URL string
+    // }
+
+    private fun generateQRCodeBitmap(url: String): Bitmap {
+    // Placeholder return to avoid compilation error
+    return Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
+}
+
+}
+
+
+// Add at the top or bottom of NewLandModule.kt
+data class TraTaxInvoiceResponse(
+    val station: Station?,
+    val pin: String?,
+    val phone: String?,
+    val reference: String?,
+    val buyer: Buyer?,
+    val paymentMethod: String?,
+    val timestamp: String?,
+    val pump: Int?,
+    val nozzle: Int?,
+    val grade: Grade?,
+    val vehicleNo: String?,
+    val price: String?,
+    val volume: String?,
+    val total: String?,
+    val rctvNumber: String?,
+    val deviceSerialNumber: String?
+)
+
+data class Station(val name: String?, val pin: String?, val phone: String?)
+data class Buyer(val pin: String?, val name: String?)
+data class Grade(val name: String?, val abbrev: String?)
+

@@ -1,21 +1,28 @@
-/* eslint-disable prettier/prettier */
 import React from 'react';
-import { Button } from 'react-native';
+import { Button, Alert, View } from 'react-native';
 import { NativeModules } from 'react-native';
 
-const { NewLandModule } = NativeModules;
+const { NewLandModule, QRCodeScannerModule } = NativeModules;
 
 const App = () => {
-  // Define the button press handler
-  const handleButtonPress = () => {
-    NewLandModule.initNfcAuth((message) => {
-      console.log("NFC Authentication Result:", message);
-      // You can use the result (message) to update the UI or perform other actions
+  // Define the button press handler for QR code scanning
+  const handleQrScanPress = () => {
+    QRCodeScannerModule.startScanner((result) => {
+      console.log("QR Code Scan Result:", result);
+      Alert.alert("QR Code Scan", result);
     });
   };
 
+  // Define the function for printing the receipt
+  const handlePrintReceiptPress = () => {
+    NewLandModule.initializeTRAPrinter();  // No callback needed here
+  };
+
   return (
-    <Button title="Start NFC Authentication" onPress={handleButtonPress} />
+    <View style={{ padding: 20 }}>
+      <Button title="Start QR Code Scan Android" onPress={handleQrScanPress} />
+      <Button title="Print Receipt" onPress={handlePrintReceiptPress} />
+    </View>
   );
 };
 
