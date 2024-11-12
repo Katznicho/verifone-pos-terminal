@@ -64,10 +64,8 @@ fun initializeTRAPrinter() {
         Log.d("NewLandModule", "Printer status: ${printerModule.status}")
         showToast("Check printer")
         // return
-    }
-    else {
-        // Log.d("NewLandModule", "Printer status OK")
-            try {
+    }else {
+        try {
         val fontName = "FreeMonoBold.ttf"
         printScriptUtil.addFont(reactApplicationContext, fontName)
 
@@ -147,8 +145,6 @@ fun initializeTRAPrinter() {
         Log.e("NewLandModule", "Print exception: ${ex.message}")
     }
     }
-
-
 }
 
 
