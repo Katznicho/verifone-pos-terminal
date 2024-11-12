@@ -58,14 +58,14 @@ fun initializeTRAPrinter() {
     val printerModule = moduleManage.printerModule
     val printScriptUtil = printerModule.getPrintScriptUtil(reactApplicationContext)
 
-    if (printerModule.status != PrinterStatus.NORMAL) {
-        Log.e("NewLandModule", "Check printer status")
-        //log printer status
-        Log.d("NewLandModule", "Printer status: ${printerModule.status}")
-        showToast("Check printer")
-        // return
-    }else {
-        try {
+    // if (printerModule.status != PrinterStatus.NORMAL) {
+    //     Log.e("NewLandModule", "Check printer status")
+    //     //log printer status
+    //     Log.d("NewLandModule", "Printer status: ${printerModule.status}")
+    //     showToast("Check printer")
+    //     // return
+    // }else {
+    //     try {
         val fontName = "FreeMonoBold.ttf"
         printScriptUtil.addFont(reactApplicationContext, fontName)
 
@@ -144,8 +144,8 @@ fun initializeTRAPrinter() {
     } catch (ex: Exception) {
         Log.e("NewLandModule", "Print exception: ${ex.message}")
     }
-    }
-}
+//     }
+// }
 
 
     // Extension function to add formatted text
