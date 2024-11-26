@@ -1,110 +1,69 @@
-// test scanner -- end
+/* eslint-disable prettier/prettier */
+import React from 'react';
+import { Button, Alert, View } from 'react-native';
+import { NativeModules } from 'react-native';
 
-    // test ctls -- start
-    //S50卡
-    public final static int S50_CARD = 0x00;
-    //S70卡
-    public final static int S70_CARD = 0x01;
-    //PRO卡
-    public final static int PRO_CARD = 0x02;
-    //支持S50驱动与PRO驱动的PRO卡
-    public final static int S50_PRO_CARD = 0x03;
-    //支持S70驱动与PRO驱动的PRO卡
-    public final static int S70_PRO_CARD = 0x04;
-    //CPU卡
-    public final static int CPU_CARD = 0x05;
+const { NewLandModule, QRCodeScannerModule } = NativeModules;
 
+const App = () => {
+  // QR Code Scan Handler
+  const handleQrScanPress = () => {
+    QRCodeScannerModule.startScanner((result) => {
+      console.log("QR Code Scan Result:", result);
+      Alert.alert("QR Code Scan", result);
+    });
+  };
 
-    public void readRFData() {
-        Message msg = new Message();
-        byte[] key = new byte[6];
-        Arrays.fill(key, (byte) 0xFF);
+  // Print Receipt Handler
+  const handlePrintReceiptPress = () => {
+    NewLandModule.initializeTRAPrinter();
+  };
 
-        String DEFAULT_KEY_A = "A0A1A2A3A4A5";
-        String DEFAULT_KEY_B = "FFFFFFFFFFFF";
-        byte[] apdu_ret = new byte[16];
+  // Authenticate M1 Card Handler
+  const handleAuthenticateCardPress = () => {
+    NewLandModule.authenticateM1CardDefault((error, result) => {
+      if (error) {
+        console.error('NFC Authentication Error:', error);
+        Alert.alert('Error', `NFC Authentication Failed: ${error}`);
+      } else {
+        console.log('NFC Authentication Result:', result);
+        Alert.alert('Success', `NFC Authentication Result: ${result}`);
+      }
+    });
+  };
 
-        try {
-            String cardNumber =null;
-            for (int i = 0; i < 2; i++) {
-                //int ret = irfCardReader.authSector(i, 0, hexStr2Byte(DEFAULT_KEY_A));
-                int ret = irfCardReader.authSector(i, 1, hexStr2Byte(DEFAULT_KEY_B));
-                irfCardReader.authSector(i, 1, key);
-                if (ret != 0) {
-                    Log.d(TAG, "Sector " + i + " FAILS: " + ret);
-                    continue;
-                }
+  // Read Block Data Handler
+  const handleReadBlockDataPress = () => {
+    NewLandModule.readM1CardBlock((error, result) => {
+      if (error) {
+        console.error('Error Reading Block Data:', error);
+        Alert.alert('Error', `Failed to Read Block Data: ${error}`);
+      } else {
+        console.log('Block Data:', result);
+        Alert.alert('Block Data', `Data: ${result}`);
+      }
+    });
+  };
 
-                Log.d(TAG, "Sector " + i + " OK: " + ret);
-               String sectordata =  readBlocks(i * 4, msg);
-                Log.d("CombinedSectordata", sectordata);
-                String sectordataInAscii = hexToAscii(sectordata);
-                System.out.println("sectordataInAscii: " + sectordataInAscii);
-                 cardNumber = extractCardNumber(sectordataInAscii);
-                System.out.println("Extracted card number: " + cardNumber);
+  return (
+    <View style={{ padding: 20 }}>
+      <View style={{ marginBottom: 10 }}>
+        <Button title="Start QR Code Scan Android" onPress={handleQrScanPress} />
+      </View>
+      
+      <View style={{ marginBottom: 10 }}>
+        <Button title="Print Receipt" onPress={handlePrintReceiptPress} />
+      </View>
 
-            }
-            if(cardNumber != null){
-                updateUI("CARD NUMBER: " + cardNumber);
-            }else{
-                updateUI("CARD NOT FOUND" );
-            }
-        } catch (RemoteException e) {
-            e.printStackTrace();
-        }
-    }
+      <View style={{ marginBottom: 10 }}>
+        <Button title="Authenticate M1 Card" onPress={handleAuthenticateCardPress} />
+      </View>
 
-    private String readBlocks(int blockNumberOffset, Message msg) throws RemoteException {
-       StringBuilder sectordata = new StringBuilder();
-        for (int j = 0; j < 4; j++) {
-            byte[] buffer = new byte[16];
-            int ret = irfCardReader.readBlock(j + blockNumberOffset, buffer);
+      <View style={{ marginBottom: 10 }}>
+        <Button title="Read Block Data" onPress={handleReadBlockDataPress} />
+      </View>
+    </View>
+  );
+};
 
-            if (ret == 0) {
-                sectordata.append(byte2HexStr2(buffer));
-                Log.d(TAG, "readData For Block(" + (j + blockNumberOffset) + "): success: " + byte2HexStr2(buffer));
-                msg.getData().putString("msg", "readData For Block(" + (j + blockNumberOffset) + "): success: " + byte2HexStr2(buffer));
-                //updateUI("RFID DATA: " + byte2HexStr2(buffer));
-            } else {
-                Log.d(TAG, "readData: fail: " + ret + " @ " + (j + blockNumberOffset));
-            }
-        }
-        if(sectordata == null){
-            return null;
-        }
-        return sectordata.toString();
-    }
-
-    public static String extractCardNumber(String input) {
-        // Define a regex pattern to match the card number format
-        String regex = "SU\\d+";  // Assumes 'SU' followed by digits
-
-        // Compile the pattern and create a matcher
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(input);
-
-        // Find the first match
-        if (matcher.find()) {
-            return matcher.group();  // Return the matched substring
-        }
-
-        return null;  // Return null if no match found
-    }
-
-    public static String hexToAscii(String hexString) {
-        StringBuilder asciiStringBuilder = new StringBuilder();
-
-        // Iterate over the hex string in steps of 2 (each pair represents a byte)
-        for (int i = 0; i < hexString.length(); i += 2) {
-            // Extract the current byte in hex
-            String hexByte = hexString.substring(i, i + 2);
-
-            // Convert the hex byte to an integer
-            int decimal = Integer.parseInt(hexByte, 16);
-
-            // Convert the decimal value to its corresponding ASCII character
-            asciiStringBuilder.append((char) decimal);
-        }
-
-        return asciiStringBuilder.toString();
-    }
+export default App;

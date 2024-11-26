@@ -46,9 +46,6 @@ import com.newland.sdk.mtype.log.DeviceLogger
 import com.newland.sdk.mtype.log.DeviceLoggerFactory.init
 //new imports
 
-import com.facebook.react.bridge.Promise
-
-
 
 
 
@@ -200,73 +197,88 @@ fun PrintScriptUtil.addFormattedText(leftText: String, rightText: String, maxLef
     return Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
 }
 
-@ReactMethod
-fun initNfcAuth2(promise: Promise) {
+  @ReactMethod
+fun authenticateM1CardDefault(callback: Callback) {
     try {
-        Log.d("NewLandModule", "Initializing NFC module...")
-
-        val moduleManage = ModuleManage.getInstance()
-        moduleManage.init(reactApplicationContext)
-
-        val rfCardModule = moduleManage.rfCardModule
-        Log.d("NewLandModule", "Module initialized successfully.")
-
-        val cardTypeList = arrayOf(RFCardType.M1CARD)
-        val timeout = 60
-        val rfCardPowerOnExtParams: RFCardPowerOnExtParams? = null
-
-        val rfResult = rfCardModule.powerOn(cardTypeList, timeout, rfCardPowerOnExtParams)
-
-        if (rfResult == null) {
-            Log.e("NewLandModule", "Failed to power on card.")
-            promise.reject("ERROR", "Failed to power on card.")
-            return
-        }
-
-        Log.d("NewLandModule", "Card powered on. Card Type: ${rfResult.rfcardType}, UID: ${rfResult.snr}")
-
-        if (rfResult.rfcardType != RFCardType.M1CARD) {
-            Log.e("NewLandModule", "Incorrect card type detected.")
-            promise.reject("ERROR", "Incorrect card type.")
-            return
-        }
-
-        val keyMode = RFKeyMode.KEYB_0X01
+        // Define default NFC keys (Key A and Key B)
         val defaultKeyA = byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte())
-        val block = 4
-        val uid = rfResult.snr
+        val defaultKeyB = byteArrayOf(0x00.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte())
 
-        Log.d("NewLandModule", "Attempting authentication on block $block with Key A.")
+        // Define default block and UID (modify as per your application's logic)
+        val defaultBlock = 4 // Example default block
+        val defaultUid = byteArrayOf(0x04.toByte(), 0xAB.toByte(), 0xCD.toByte(), 0xEF.toByte()) // Example UID
 
-        if (rfCardModule.m1Authenticate(keyMode, defaultKeyA, block, uid)) {
-            Log.d("NewLandModule", "Authentication successful for block $block.")
-
-            val blockData = rfCardModule.m1ReadBlockData(block)
-            if (blockData != null) {
-                val hexString = ISOUtils.hexString(blockData)
-                Log.d("NewLandModule", "Read block data: $hexString")
-                promise.resolve("Read block data: $hexString")
-            } else {
-                Log.e("NewLandModule", "Failed to read block data.")
-                promise.reject("ERROR", "Failed to read block data.")
-            }
-        } else {
-            Log.e("NewLandModule", "Authentication failed using Key A.")
-            promise.reject("ERROR", "Authentication failed using Key A.")
+        // Attempt to authenticate using Key A
+        try {
+            val resultA = rfCardModule.m1Authenticate(RFKeyMode.KEYA_0X00, defaultKeyA, defaultBlock, defaultUid)
+            callback.invoke(null, "Authentication successful with Key A")
+            return
+        } catch (e: Exception) {
+            Log.e("NewLandModule", "Authentication with Key A failed: ${e.message}")
         }
+
+        // If Key A fails, attempt Key B
+        try {
+            val resultB = rfCardModule.m1Authenticate(RFKeyMode.KEYB_0X01, defaultKeyB, defaultBlock, defaultUid)
+            callback.invoke(null, "Authentication successful with Key B")
+            return
+        } catch (e: Exception) {
+            Log.e("NewLandModule", "Authentication with Key B failed: ${e.message}")
+        }
+
+        // If both keys fail
+        callback.invoke("Authentication failed with default keys", null)
     } catch (e: Exception) {
-        Log.e("NewLandModule", "Error during NFC operation: ${e.message}", e)
-        promise.reject("ERROR", "Error during NFC operation: ${e.message}")
+        Log.e("NewLandModule", "Authentication failed: ${e.message}")
+        callback.invoke("Authentication failed: ${e.message}", null)
     }
 }
 
 
+    @ReactMethod
+    fun readM1CardBlock(block: Int, callback: Callback) {
+        try {
+            val data = rfCardModule.m1ReadBlockData(block)
+            callback.invoke(null, ISOUtils.hexString(data))
+        } catch (e: Exception) {
+            Log.e("NewLandModule", "Read block data failed: ${e.message}")
+            callback.invoke("Read block data failed: ${e.message}", null)
+        }
+    }
 
+    @ReactMethod
+    fun writeM1CardBlock(block: Int, data: String, callback: Callback) {
+        try {
+            val dataBytes = data.toByteArray()
+            val result = rfCardModule.m1WriteBlockData(block, dataBytes)
+            callback.invoke(null, result)
+        } catch (e: Exception) {
+            Log.e("NewLandModule", "Write block data failed: ${e.message}")
+            callback.invoke("Write block data failed: ${e.message}", null)
+        }
+    }
 
+    @ReactMethod
+    fun powerOffCard(callback: Callback) {
+        try {
+            rfCardModule.powerOff()
+            callback.invoke(null, true)
+        } catch (e: Exception) {
+            Log.e("NewLandModule", "Power off failed: ${e.message}")
+            callback.invoke("Power off failed: ${e.message}", null)
+        }
+    }
 
-
-
-
+//     @ReactMethod
+// fun powerOnCard(callback: Callback) {
+//     try {
+//         val cardInfo = rfCardModule.powerOn(RFCardType.M1, RFCardPowerOnExtParams())
+//         callback.invoke(null, ISOUtils.hexString(cardInfo.uid))
+//     } catch (e: Exception) {
+//         Log.e("NewLandModule", "Power on failed: ${e.message}")
+//         callback.invoke("Power on failed: ${e.message}", null)
+//     }
+// }
 
 private fun handleCardError(e: Exception, callback: Callback) {
     Log.e("NewLandModule", "Error: ${e.message}")

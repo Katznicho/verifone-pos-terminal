@@ -1,29 +1,62 @@
-import React from 'react';
-import { Button, Alert, View } from 'react-native';
+/* eslint-disable prettier/prettier */
+import React, { useState } from 'react';
+import { View, Text, Button, StyleSheet, Alert } from 'react-native';
 import { NativeModules } from 'react-native';
 
-const { NewLandModule, QRCodeScannerModule } = NativeModules;
+const { NewLandModule } = NativeModules;
 
-const App = () => {
-  // Define the button press handler for QR code scanning
-  const handleQrScanPress = () => {
-    QRCodeScannerModule.startScanner((result) => {
-      console.log("QR Code Scan Result:", result);
-      Alert.alert("QR Code Scan", result);
-    });
-  };
+export default function App() {
+  const [authStatus, setAuthStatus] = useState(''); // Display authentication status
+  const [blockData, setBlockData] = useState(''); // Display block data
 
-  // Define the function for printing the receipt
-  const handlePrintReceiptPress = () => {
-    NewLandModule.initializeTRAPrinter();  // No callback needed here
+  // Function to initialize NFC authentication
+  const handleNfcAuth = async () => {
+    try {
+      const result = await NewLandModule.initNfcAuth2();
+      setAuthStatus('Authentication Successful');
+      setBlockData(result); // Assuming the result contains block data
+      Alert.alert('Success', result);
+    } catch (error) {
+      setAuthStatus('Authentication Failed');
+      Alert.alert('Error', error.message || 'Operation failed');
+    }
   };
 
   return (
-    <View style={{ padding: 20 }}>
-      <Button title="Start QR Code Scan Android" onPress={handleQrScanPress} />
-      <Button title="Print Receipt" onPress={handlePrintReceiptPress} />
+    <View style={styles.container}>
+      <Text style={styles.title}>NFC Card Reader</Text>
+
+      {/* Button to handle NFC authentication */}
+      <Button title="Start NFC Authentication" onPress={handleNfcAuth} />
+      <Text style={styles.statusText}>{authStatus}</Text>
+      <Text style={styles.dataText}>Block Data: {blockData}</Text>
     </View>
   );
-};
+}
 
-export default App;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  statusText: {
+    fontSize: 16,
+    color: 'green',
+    marginVertical: 10,
+    textAlign: 'center',
+  },
+  dataText: {
+    fontSize: 16,
+    color: 'blue',
+    marginVertical: 10,
+    textAlign: 'center',
+  },
+});
