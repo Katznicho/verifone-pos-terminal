@@ -108,6 +108,7 @@ const App = () => {
   const readRFIDData = async () => {
     try {
       await StabexModule.readRFData();
+      //readRFData();
     } catch (e) {
       console.error('Error reading RFID data:', e);
       Alert.alert('RFID Read Error', 'An error occurred while reading the RFID data.');

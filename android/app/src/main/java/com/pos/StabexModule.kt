@@ -302,7 +302,7 @@ fun activateCard(driver: String) {
     }
 
 
-
+    @ReactMethod
     fun readRFData() {
         irfCardReader?.let { rfCardReader ->
             val key = ByteArray(6) { 0xFF.toByte() }
