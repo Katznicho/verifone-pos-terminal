@@ -37,9 +37,13 @@ const App = () => {
         console.log('Scan Cancel:', message);
         Alert.alert('Scan Cancel', message);
       }),
-      eventEmitter.addListener('RFCardPass', (message) => {
-        console.log('RF Card Pass:', message);
-        Alert.alert('RF Card Pass', message);
+      // eventEmitter.addListener('RFCardPass', (message) => {
+      //   console.log('RF Card Pass:', message);
+      //   Alert.alert('RF Card Pass', message);
+      // }),
+      eventEmitter.addListener("RFCardNumber", (message) => {
+        console.log('RF Card Number:', message);
+        Alert.alert('RF Card Number', message);
       }),
       eventEmitter.addListener('RFSearchFail', (message) => {
         console.error('RF Search Fail:', message);
